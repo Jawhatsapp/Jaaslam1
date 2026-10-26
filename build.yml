@@ -1,0 +1,550 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.7
+      - name: Create project
+        run: |
+          set -e
+          mkdir -p app/src/main/res/mipmap-xxxhdpi app/src/main/res/drawable-nodpi
+          mkdir -p app
+          cat > app/build.gradle <<'ZEOF'
+          plugins { id 'com.android.application' }
+
+          android {
+              namespace 'com.zaeem.ja'
+              compileSdk 34
+              defaultConfig {
+                  applicationId 'com.zaeem.ja'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled true
+                      shrinkResources true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                      signingConfig signingConfigs.debug
+                  }
+              }
+              lint { checkReleaseBuilds false; abortOnError false }
+          }
+          ZEOF
+          mkdir -p app
+          cat > app/proguard-rules.pro <<'ZEOF'
+          # no extra rules
+          ZEOF
+          mkdir -p app/src/main
+          cat > app/src/main/AndroidManifest.xml <<'ZEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:label="@string/app_name"
+                  android:icon="@mipmap/ic_launcher"
+                  android:supportsRtl="true"
+                  android:allowBackup="true"
+                  android:theme="@android:style/Theme.Material.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          ZEOF
+          mkdir -p app/src/main/java/com/zaeem/ja
+          cat > app/src/main/java/com/zaeem/ja/Data.java <<'ZEOF'
+          package com.zaeem.ja;
+
+          final class Data {
+              static final String[][] ITEMS = {
+                  { // الأذكار
+                      "سبحان الله وبحمده، سبحان الله العظيم.",
+                      "لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير.",
+                      "أستغفر الله العظيم الذي لا إله إلا هو الحي القيوم وأتوب إليه.",
+                      "لا حول ولا قوة إلا بالله.",
+                      "اللهم صلِّ وسلِّم على نبينا محمد.",
+                      "حسبيَ الله لا إله إلا هو، عليه توكلت وهو رب العرش العظيم.",
+                      "بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء وهو السميع العليم.",
+                      "سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر.",
+                      "اللهم أعني على ذكرك وشكرك وحسن عبادتك.",
+                      "رضيت بالله ربًّا، وبالإسلام دينًا، وبمحمد ﷺ نبيًّا.",
+                      "اللهم إني أسألك علمًا نافعًا، ورزقًا طيبًا، وعملًا متقبلًا.",
+                      "يا حيُّ يا قيوم برحمتك أستغيث، أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين."
+                  },
+                  { // الأدعية
+                      "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ.",
+                      "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي.",
+                      "رَبَّنَا لَا تُؤَاخِذْنَا إِنْ نَسِينَا أَوْ أَخْطَأْنَا.",
+                      "رَبِّ زِدْنِي عِلْمًا.",
+                      "لَا إِلَٰهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ.",
+                      "رَبَّنَا هَبْ لَنَا مِنْ أَزْوَاجِنَا وَذُرِّيَّاتِنَا قُرَّةَ أَعْيُنٍ وَاجْعَلْنَا لِلْمُتَّقِينَ إِمَامًا.",
+                      "رَبَّنَا لَا تُزِغْ قُلُوبَنَا بَعْدَ إِذْ هَدَيْتَنَا وَهَبْ لَنَا مِنْ لَدُنْكَ رَحْمَةً إِنَّكَ أَنْتَ الْوَهَّابُ.",
+                      "اللهم إني أعوذ بك من الهم والحزن، والعجز والكسل، والبخل والجبن، وضلع الدين وغلبة الرجال.",
+                      "اللهم يا مقلب القلوب ثبّت قلبي على دينك.",
+                      "اللهم اغفر لي ذنبي كله، دقَّه وجلَّه، أوله وآخره، علانيته وسره.",
+                      "رَبَّنَا اغْفِرْ لَنَا وَلِإِخْوَانِنَا الَّذِينَ سَبَقُونَا بِالْإِيمَانِ وَلَا تَجْعَلْ فِي قُلُوبِنَا غِلًّا لِلَّذِينَ آمَنُوا."
+                  },
+                  { // الحكم
+                      "مَن جدَّ وجد، ومَن زرع حصد.",
+                      "قال النبي ﷺ: «الكلمة الطيبة صدقة».",
+                      "قال النبي ﷺ: «لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه».",
+                      "قال النبي ﷺ: «تبسمك في وجه أخيك صدقة».",
+                      "قال النبي ﷺ: «خيركم من تعلم القرآن وعلمه».",
+                      "قال النبي ﷺ: «الدال على الخير كفاعله».",
+                      "قال النبي ﷺ: «من لا يرحم لا يُرحم».",
+                      "قال النبي ﷺ: «إنما الأعمال بالنيات».",
+                      "قال تعالى: ﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾.",
+                      "قال تعالى: ﴿إِنَّ مَعَ الْعُسْرِ يُسْرًا﴾.",
+                      "قال تعالى: ﴿وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ﴾.",
+                      "قال علي بن أبي طالب رضي الله عنه: «قيمة كل امرئ ما يحسنه»."
+                  },
+                  { // الخواطر
+                      "إذا ضاقت بك الدنيا فتذكّر أن لك ربًّا بيده مفاتيح الفرج.",
+                      "الرضا بقضاء الله راحةٌ لا يعرفها إلا من ذاق طعمها.",
+                      "ما تأخّر عنك شيءٌ إلا لأن الله يُعدّ لك ما هو أجمل منه.",
+                      "اجعل لسانك رطبًا بذكر الله، يُنوَّر قلبك وتطمئن نفسك.",
+                      "الدعاء بابٌ لا يُغلق، فاطرقه في كل وقت ولا تملّ.",
+                      "لا تحزن على ما فات، فربما كان في فواته نجاتك.",
+                      "صلاة الفجر نورٌ يضيء يومك كله.",
+                      "أحسن الظن بالله، فهو عند حسن ظن عبده به.",
+                      "القلب الذي يعمره الإيمان لا تهزّه العواصف.",
+                      "ابتسم، فالله كتب لك رزقك ولن يسبقك إليه أحد.",
+                      "كل ليلة تمرّ هي فرصة جديدة للاستغفار والعودة.",
+                      "من أصلح ما بينه وبين الله أصلح الله ما بينه وبين الناس."
+                  }
+              };
+          }
+          ZEOF
+          mkdir -p app/src/main/java/com/zaeem/ja
+          cat > app/src/main/java/com/zaeem/ja/MainActivity.java <<'ZEOF'
+          package com.zaeem.ja;
+
+          import android.app.Activity;
+          import android.content.ClipData;
+          import android.content.ClipboardManager;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.graphics.Typeface;
+          import android.graphics.drawable.GradientDrawable;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.HorizontalScrollView;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.Switch;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.util.Calendar;
+          import java.util.HashSet;
+          import java.util.Set;
+
+          public class MainActivity extends Activity {
+
+              static final String DEV = "الزعيم JA";
+              static final int GOLD = 0xFFD4AF37;
+
+              SharedPreferences sp;
+              boolean dark;
+              int fs;
+              int cat = 0, mode = 0; // mode: 0 قائمة، 1 إعدادات، 2 حول المطور
+              int bg, cardC, txt, sub;
+              LinearLayout list, tabs;
+              HorizontalScrollView tabsScroll;
+              TextView gear;
+
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  sp = getSharedPreferences("s", 0);
+                  build();
+              }
+
+              int dp(int v) {
+                  return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
+              }
+
+              GradientDrawable shape(int color, int radius) {
+                  GradientDrawable g = new GradientDrawable();
+                  g.setColor(color);
+                  g.setCornerRadius(dp(radius));
+                  return g;
+              }
+
+              TextView text(String s, int size, int color, boolean bold) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  if (bold) t.setTypeface(null, Typeface.BOLD);
+                  return t;
+              }
+
+              LinearLayout.LayoutParams margins(int l, int t, int r, int b) {
+                  LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                  lp.setMargins(dp(l), dp(t), dp(r), dp(b));
+                  return lp;
+              }
+
+              void build() {
+                  dark = sp.getBoolean("dark", true);
+                  fs = sp.getInt("fs", 20);
+                  bg = dark ? 0xFF0B0B0B : 0xFFFAF6EA;
+                  cardC = dark ? 0xFF1A1A1A : 0xFFFFFFFF;
+                  txt = dark ? 0xFFF2E6C0 : 0xFF222222;
+                  sub = dark ? 0xFF9A9072 : 0xFF777777;
+                  getWindow().setStatusBarColor(0xFF000000);
+
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(bg);
+                  root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+                  LinearLayout h = new LinearLayout(this);
+                  h.setOrientation(LinearLayout.HORIZONTAL);
+                  h.setGravity(Gravity.CENTER_VERTICAL);
+                  h.setBackgroundColor(0xFF000000);
+                  h.setPadding(dp(14), dp(10), dp(14), dp(10));
+                  ImageView lg = new ImageView(this);
+                  lg.setImageResource(R.drawable.logo);
+                  h.addView(lg, new LinearLayout.LayoutParams(dp(44), dp(44)));
+                  TextView t = text("عبارات وخواطر", 20, GOLD, true);
+                  t.setPadding(dp(12), 0, dp(12), 0);
+                  h.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                  gear = text("الإعدادات", 14, GOLD, true);
+                  gear.setBackground(shape(0xFF1A1A1A, 20));
+                  gear.setPadding(dp(14), dp(7), dp(14), dp(7));
+                  gear.setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View v) {
+                          mode = (mode == 0) ? 1 : 0;
+                          render();
+                      }
+                  });
+                  h.addView(gear);
+                  root.addView(h);
+
+                  View line = new View(this);
+                  line.setBackgroundColor(GOLD);
+                  root.addView(line, new LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT, dp(2)));
+
+                  tabsScroll = new HorizontalScrollView(this);
+                  tabsScroll.setHorizontalScrollBarEnabled(false);
+                  tabs = new LinearLayout(this);
+                  tabs.setOrientation(LinearLayout.HORIZONTAL);
+                  tabs.setPadding(dp(8), dp(10), dp(8), dp(6));
+                  tabsScroll.addView(tabs);
+                  root.addView(tabsScroll);
+
+                  ScrollView sv = new ScrollView(this);
+                  list = new LinearLayout(this);
+                  list.setOrientation(LinearLayout.VERTICAL);
+                  list.setPadding(0, dp(4), 0, dp(20));
+                  sv.addView(list);
+                  root.addView(sv, new LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+
+                  setContentView(root);
+                  render();
+              }
+
+              void render() {
+                  list.removeAllViews();
+                  gear.setText(mode == 0 ? "الإعدادات" : "الرئيسية");
+                  tabsScroll.setVisibility(mode == 0 ? View.VISIBLE : View.GONE);
+                  if (mode == 1) { settings(); return; }
+                  if (mode == 2) { about(); return; }
+
+                  tabs.removeAllViews();
+                  String[] names = {"الأذكار", "الأدعية", "الحكم", "الخواطر", "المفضلة"};
+                  for (int i = 0; i < names.length; i++) {
+                      final int k = i;
+                      TextView c = text(names[i], 16, i == cat ? 0xFF000000 : GOLD, true);
+                      c.setBackground(shape(i == cat ? GOLD : cardC, 20));
+                      c.setPadding(dp(18), dp(8), dp(18), dp(8));
+                      c.setOnClickListener(new View.OnClickListener() {
+                          public void onClick(View v) {
+                              cat = k;
+                              render();
+                          }
+                      });
+                      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                              LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                      lp.setMargins(dp(4), 0, dp(4), 0);
+                      tabs.addView(c, lp);
+                  }
+
+                  if (cat == 0) daily();
+                  if (cat < 4) {
+                      for (int i = 0; i < Data.ITEMS[cat].length; i++) list.addView(card(cat, i));
+                  } else {
+                      favs();
+                  }
+              }
+
+              void daily() {
+                  int d = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
+                  int c = d % 4;
+                  int i = d % Data.ITEMS[c].length;
+                  LinearLayout b = new LinearLayout(this);
+                  b.setOrientation(LinearLayout.VERTICAL);
+                  b.setBackground(shape(GOLD, 18));
+                  b.setPadding(dp(18), dp(14), dp(18), dp(16));
+                  b.addView(text("عبارة اليوم", 14, 0xFF000000, true));
+                  TextView m = text(Data.ITEMS[c][i], fs, 0xFF000000, true);
+                  m.setLineSpacing(0, 1.3f);
+                  m.setPadding(0, dp(8), 0, 0);
+                  b.addView(m);
+                  list.addView(b, margins(12, 8, 12, 6));
+              }
+
+              Set<String> favSet() {
+                  return new HashSet<String>(sp.getStringSet("fav", new HashSet<String>()));
+              }
+
+              void favs() {
+                  Set<String> f = favSet();
+                  boolean any = false;
+                  for (int c = 0; c < 4; c++) {
+                      for (int i = 0; i < Data.ITEMS[c].length; i++) {
+                          if (f.contains(c + ":" + i)) {
+                              list.addView(card(c, i));
+                              any = true;
+                          }
+                      }
+                  }
+                  if (!any) {
+                      TextView e = text("لم تحفظ أي عبارة بعد.\nاضغط «حفظ» أسفل أي عبارة لتجدها هنا.", 16, sub, false);
+                      e.setGravity(Gravity.CENTER);
+                      e.setLineSpacing(0, 1.3f);
+                      e.setPadding(dp(24), dp(48), dp(24), 0);
+                      list.addView(e);
+                  }
+              }
+
+              TextView btn(String s) {
+                  TextView t = text(s, 14, GOLD, true);
+                  t.setPadding(dp(14), dp(8), dp(14), dp(8));
+                  return t;
+              }
+
+              View card(int c, int i) {
+                  final String id = c + ":" + i;
+                  final String s = Data.ITEMS[c][i];
+                  LinearLayout k = new LinearLayout(this);
+                  k.setOrientation(LinearLayout.VERTICAL);
+                  k.setBackground(shape(cardC, 16));
+                  k.setPadding(dp(16), dp(14), dp(16), dp(6));
+                  TextView m = text(s, fs, txt, false);
+                  m.setLineSpacing(0, 1.35f);
+                  k.addView(m);
+
+                  LinearLayout a = new LinearLayout(this);
+                  a.setOrientation(LinearLayout.HORIZONTAL);
+                  a.setPadding(0, dp(8), 0, 0);
+
+                  TextView cp = btn("نسخ");
+                  cp.setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View v) {
+                          ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                          cm.setPrimaryClip(ClipData.newPlainText("text", s));
+                          Toast.makeText(MainActivity.this, "تم النسخ", Toast.LENGTH_SHORT).show();
+                      }
+                  });
+                  TextView sh = btn("مشاركة");
+                  sh.setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View v) {
+                          share(s);
+                      }
+                  });
+                  final TextView fv = btn(favSet().contains(id) ? "إزالة" : "حفظ");
+                  fv.setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View v) {
+                          Set<String> f = favSet();
+                          if (f.contains(id)) f.remove(id); else f.add(id);
+                          sp.edit().putStringSet("fav", f).apply();
+                          if (cat == 4) render();
+                          else fv.setText(f.contains(id) ? "إزالة" : "حفظ");
+                      }
+                  });
+                  a.addView(cp);
+                  a.addView(sh);
+                  a.addView(fv);
+                  k.addView(a);
+                  k.setLayoutParams(margins(12, 6, 12, 6));
+                  return k;
+              }
+
+              void share(String s) {
+                  Intent i = new Intent(Intent.ACTION_SEND);
+                  i.setType("text/plain");
+                  i.putExtra(Intent.EXTRA_TEXT, s + "\n\n— تطبيق عبارات وخواطر | " + DEV);
+                  startActivity(Intent.createChooser(i, "مشاركة"));
+              }
+
+              LinearLayout panel() {
+                  LinearLayout p = new LinearLayout(this);
+                  p.setOrientation(LinearLayout.VERTICAL);
+                  p.setBackground(shape(cardC, 16));
+                  p.setPadding(dp(18), dp(14), dp(18), dp(14));
+                  list.addView(p, margins(12, 6, 12, 6));
+                  return p;
+              }
+
+              void settings() {
+                  TextView ttl = text("الإعدادات", 22, GOLD, true);
+                  ttl.setPadding(dp(18), dp(12), dp(18), dp(4));
+                  list.addView(ttl);
+
+                  LinearLayout p1 = panel();
+                  LinearLayout r = new LinearLayout(this);
+                  r.setOrientation(LinearLayout.HORIZONTAL);
+                  r.setGravity(Gravity.CENTER_VERTICAL);
+                  r.addView(text("الوضع الليلي", 17, txt, true),
+                          new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                  Switch sw = new Switch(this);
+                  sw.setChecked(dark);
+                  sw.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+                      public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
+                          sp.edit().putBoolean("dark", on).apply();
+                          mode = 1;
+                          build();
+                      }
+                  });
+                  r.addView(sw);
+                  p1.addView(r);
+
+                  LinearLayout p2 = panel();
+                  p2.addView(text("حجم الخط", 17, txt, true));
+                  final TextView pv = text("سبحان الله وبحمده، سبحان الله العظيم", fs, sub, false);
+                  pv.setPadding(0, dp(10), 0, dp(6));
+                  p2.addView(pv);
+                  SeekBar sb = new SeekBar(this);
+                  sb.setMax(18);
+                  sb.setProgress(fs - 14);
+                  sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                      public void onProgressChanged(SeekBar s, int p, boolean u) {
+                          fs = 14 + p;
+                          pv.setTextSize(fs);
+                          sp.edit().putInt("fs", fs).apply();
+                      }
+                      public void onStartTrackingTouch(SeekBar s) {}
+                      public void onStopTrackingTouch(SeekBar s) {}
+                  });
+                  p2.addView(sb);
+
+                  LinearLayout p3 = panel();
+                  TextView shareApp = text("مشاركة التطبيق", 17, txt, true);
+                  shareApp.setPadding(0, dp(6), 0, dp(14));
+                  shareApp.setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View v) {
+                          Intent i = new Intent(Intent.ACTION_SEND);
+                          i.setType("text/plain");
+                          i.putExtra(Intent.EXTRA_TEXT, "جرّب تطبيق «عبارات وخواطر» أذكار وأدعية وحكم وخواطر دينية — من تطوير " + DEV);
+                          startActivity(Intent.createChooser(i, "مشاركة التطبيق"));
+                      }
+                  });
+                  p3.addView(shareApp);
+                  TextView ab = text("حول المطور", 17, txt, true);
+                  ab.setPadding(0, dp(6), 0, dp(6));
+                  ab.setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View v) {
+                          mode = 2;
+                          render();
+                      }
+                  });
+                  p3.addView(ab);
+              }
+
+              void about() {
+                  LinearLayout p = panel();
+                  p.setGravity(Gravity.CENTER_HORIZONTAL);
+                  p.setPadding(dp(18), dp(28), dp(18), dp(28));
+                  ImageView lg = new ImageView(this);
+                  lg.setImageResource(R.drawable.logo);
+                  p.addView(lg, new LinearLayout.LayoutParams(dp(150), dp(150)));
+                  TextView n = text(DEV, 28, GOLD, true);
+                  n.setGravity(Gravity.CENTER);
+                  n.setPadding(0, dp(14), 0, dp(2));
+                  p.addView(n);
+                  TextView r = text("مطوّر التطبيق", 15, sub, false);
+                  r.setGravity(Gravity.CENTER);
+                  p.addView(r);
+                  TextView d = text("تطبيق خفيف يجمع الأذكار والأدعية والحكم والخواطر الدينية، صُنع ليكون رفيقك كل يوم. لا تنسونا من صالح دعائكم.", 16, txt, false);
+                  d.setGravity(Gravity.CENTER);
+                  d.setLineSpacing(0, 1.35f);
+                  d.setPadding(0, dp(18), 0, dp(14));
+                  p.addView(d);
+                  TextView v = text("الإصدار 1.0", 14, sub, false);
+                  v.setGravity(Gravity.CENTER);
+                  p.addView(v);
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (mode == 2) { mode = 1; render(); }
+                  else if (mode == 1) { mode = 0; render(); }
+                  else super.onBackPressed();
+              }
+          }
+          ZEOF
+          mkdir -p app/src/main/res/values
+          cat > app/src/main/res/values/strings.xml <<'ZEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">عبارات وخواطر</string>
+          </resources>
+          ZEOF
+          mkdir -p .
+          cat > build.gradle <<'ZEOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          ZEOF
+          mkdir -p .
+          cat > gradle.properties <<'ZEOF'
+          org.gradle.jvmargs=-Xmx2g
+          android.nonTransitiveRClass=true
+          ZEOF
+          mkdir -p .
+          cat > settings.gradle <<'ZEOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = 'ZaeemJA'
+          include ':app'
+          ZEOF
+          echo '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' | base64 -d > app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          cp app/src/main/res/mipmap-xxxhdpi/ic_launcher.png app/src/main/res/drawable-nodpi/logo.png
+      - name: Debug keystore
+        run: |
+          mkdir -p ~/.android
+          [ -f ~/.android/debug.keystore ] || keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+      - name: Build
+        run: gradle assembleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZaeemJA-APK
+          path: app/build/outputs/apk/release/*.apk
